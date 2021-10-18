@@ -1,0 +1,4 @@
+#!/bin/bash
+
+g++ -o lippo -O3 -std=c++2a lippo.cpp -ldpp
+
