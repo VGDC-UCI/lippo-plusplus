@@ -122,7 +122,7 @@ int main() {
 			std::string message = event.msg->content;
 			bot.message_delete(event.msg->id, event.msg->channel_id);
 			bot.message_create(dpp::message(event.msg->channel_id, std::regex_replace(message, url_regex, "[[HYPERLINK BLOCKED]]")));
-			bot.message_create(dpp::message(event.msg->channel_id, "You didn't have enough Kromer to post that! :scratch:"));
+			bot.message_create(dpp::message(event.msg->channel_id, "You don't have enough Kromer to post that."));
 			return;
 		}
 
