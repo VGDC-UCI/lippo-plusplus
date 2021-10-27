@@ -46,6 +46,7 @@ Art generated on manytools.org
 #include <regex>
 #include <fstream>
 #include <algorithm>
+#include <unordered_set>
 
 namespace {
 	bool lab_open = false;
@@ -57,7 +58,12 @@ namespace {
 
 	constexpr const char* TokenFile = "token/token.txt";
 
-	std::regex secret_lab_regex{R"reg((?:[s$]\s*(?:[e3 ]\s*)+[ck]\s*[r4]\s*(?:[e3 i1]\s*)+[t7]\s*([e3 ]\s*)*\s*[l1]\s*[a@8 ]\s*[b8]))reg", std::regex_constants::icase};
+	static std::regex secret_lab_regex{R"reg((?:[s$]\s*(?:[e3 ]\s*)+[ck]\s*[r4]\s*(?:[e3 i1]\s*)+[t7]\s*([e3 ]\s*)*\s*[l1]\s*[a@8 ]\s*[b8]))reg", std::regex_constants::icase};
+	//static std::regex url_regex{R"reg(https?:\/\/)reg", std::regex_constants::icase};
+	static std::regex url_regex{R"reg(https?:\/\/.+\..+)reg"};
+	static std::regex scam_regex{R"reg(\bnitro\b)reg", std::regex_constants::icase};
+
+	//static std::unordered_set<std::string> badlinks = {"dliscord", "dlscord"};
 }
 
 void set_lab_open(dpp::cluster& bot, bool open) {
@@ -106,29 +112,51 @@ int main() {
 			return;
 		}
 
+		/*
+		for (const std::string& string : badlinks) {
+			if (event.msg->content.find(string) != std::string::npos) {
+				bot.message_delete(event.msg->id, event.msg->channel_id);
+				bot.message_create(dpp::message(event.msg->channel_id, "I just automatically removed a potentially malicious link."));
+				return;
+			}
+		}
+		*/
+
+		if (std::regex_search(event.msg->content, url_regex) && std::regex_search(event.msg->content, scam_regex)) {
+			std::string message = event.msg->content;
+			bot.message_delete(event.msg->id, event.msg->channel_id);
+			bot.message_create(dpp::message(event.msg->channel_id, "I just automatically removed a message that contained words we've recently seen in malicious messages. If this is a mistake, please DM one of the programming officers."));
+			bot.message_create(dpp::message(event.msg->channel_id, "Deleted message:\n" + std::regex_replace(message, url_regex, "[LINK BLOCKED]")));
+			return;
+		}
+
 		if (event.msg->guild_id == VgdcServerId && std::regex_search(event.msg->content, secret_lab_regex)) {
 			bot.message_create(dpp::message(event.msg->channel_id, mention(event.msg->author->id) + "I think you mean \"Quiet Lab.\""));
 			return;
 		}
 
 		if (event.msg->content == "!labopen" && event.msg->channel_id == ChannelLabStatus) {
-			for (auto  role : event.msg->member.roles) {
+			for (auto& role : event.msg->member.roles) {
 				if (role == RoleOperations || role == RoleAdmin) {
 					set_lab_open(bot, true);
 					bot.message_create(dpp::message(event.msg->channel_id, "Game lab is now OPEN"));
 					return;
 				}
 			}
+
+			return;
 		}
 
 		if ((event.msg->content == "!labclose" || event.msg->content == "!labclosed") && event.msg->channel_id == ChannelLabStatus) {
-			for (auto  role : event.msg->member.roles) {
+			for (auto& role : event.msg->member.roles) {
 				if (role == RoleOperations || role == RoleAdmin) {
 					set_lab_open(bot, false);
 					bot.message_create(dpp::message(event.msg->channel_id, "Game lab is now CLOSED"));
 					return;
 				}
 			}
+
+			return;
 		}
 	});
 

@@ -1,4 +1,4 @@
 #!/bin/bash
 
-g++ -o lippo -O3 -std=c++2a lippo.cpp -ldpp
+g++ -o lippo -O3 -std=c++17 lippo.cpp -ldpp
 
