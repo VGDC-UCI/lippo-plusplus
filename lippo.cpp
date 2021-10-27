@@ -60,6 +60,7 @@ namespace {
 	static std::regex url_regex{R"reg(https?:\/\/.+\..+)reg", std::regex_constants::icase};
 	static std::regex scam_regex{R"reg(\bnitro\b)reg", std::regex_constants::icase};
 	static std::regex everyone_regex{R"reg(@everyone)reg"};
+	static std::regex spamton_regex{R"reg(\bspamton\b)reg", std::regex_constants::icase}; // not my idea -Diane
 }
 
 void set_lab_open(dpp::cluster& bot, bool open) {
@@ -118,7 +119,6 @@ int main() {
 
 		// Spamton Easter Egg
 		if (std::regex_search(event.msg->content, url_regex) && std::regex_search(event.msg->content, spamton_regex)) {
-			static std::regex spamton_regex{R"reg(\bspamton\b)reg", std::regex_constants::icase};
 			std::string message = event.msg->content;
 			bot.message_delete(event.msg->id, event.msg->channel_id);
 			bot.message_create(dpp::message(event.msg->channel_id, std::regex_replace(message, url_regex, "[[HYPERLINK BLOCKED]]")));
