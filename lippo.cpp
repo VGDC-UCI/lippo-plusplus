@@ -116,6 +116,16 @@ int main() {
 			return;
 		}
 
+		// Spamton Easter Egg
+		if (std::regex_search(event.msg->content, url_regex) && std::regex_search(event.msg->content, spamton_regex)) {
+			static std::regex spamton_regex{R"reg(\bspamton\b)reg", std::regex_constants::icase};
+			std::string message = event.msg->content;
+			bot.message_delete(event.msg->id, event.msg->channel_id);
+			bot.message_create(dpp::message(event.msg->channel_id, std::regex_replace(message, url_regex, "[[HYPERLINK BLOCKED]]")));
+			bot.message_create(dpp::message(event.msg->channel_id, "You didn't have enough Kromer to post that! :scratch:"));
+			return;
+		}
+
 		if (event.msg->guild_id == VgdcServerId && std::regex_search(event.msg->content, secret_lab_regex)) {
 			bot.message_create(dpp::message(event.msg->channel_id, mention(event.msg->author->id) + "I think you mean \"Quiet Lab.\""));
 			return;
