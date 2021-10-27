@@ -45,8 +45,6 @@ Art generated on manytools.org
 #include <iostream>
 #include <regex>
 #include <fstream>
-#include <algorithm>
-#include <unordered_set>
 
 namespace {
 	bool lab_open = false;
@@ -59,11 +57,9 @@ namespace {
 	constexpr const char* TokenFile = "token/token.txt";
 
 	static std::regex secret_lab_regex{R"reg((?:[s$]\s*(?:[e3 ]\s*)+[ck]\s*[r4]\s*(?:[e3 i1]\s*)+[t7]\s*([e3 ]\s*)*\s*[l1]\s*[a@8 ]\s*[b8]))reg", std::regex_constants::icase};
-	//static std::regex url_regex{R"reg(https?:\/\/)reg", std::regex_constants::icase};
-	static std::regex url_regex{R"reg(https?:\/\/.+\..+)reg"};
+	static std::regex url_regex{R"reg(https?:\/\/.+\..+)reg", std::regex_constants::icase};
 	static std::regex scam_regex{R"reg(\bnitro\b)reg", std::regex_constants::icase};
-
-	//static std::unordered_set<std::string> badlinks = {"dliscord", "dlscord"};
+	static std::regex everyone_regex{R"reg(@everyone)reg"};
 }
 
 void set_lab_open(dpp::cluster& bot, bool open) {
@@ -112,18 +108,8 @@ int main() {
 			return;
 		}
 
-		/*
-		for (const std::string& string : badlinks) {
-			if (event.msg->content.find(string) != std::string::npos) {
-				bot.message_delete(event.msg->id, event.msg->channel_id);
-				bot.message_create(dpp::message(event.msg->channel_id, "I just automatically removed a potentially malicious link."));
-				return;
-			}
-		}
-		*/
-
 		if (std::regex_search(event.msg->content, url_regex) && std::regex_search(event.msg->content, scam_regex)) {
-			std::string message = event.msg->content;
+			std::string message = std::regex_replace(event.msg->content, everyone_regex, "");
 			bot.message_delete(event.msg->id, event.msg->channel_id);
 			bot.message_create(dpp::message(event.msg->channel_id, "I just automatically removed a message that contained words we've recently seen in malicious messages. If this is a mistake, please DM one of the programming officers."));
 			bot.message_create(dpp::message(event.msg->channel_id, "Deleted message:\n" + std::regex_replace(message, url_regex, "[LINK BLOCKED]")));
