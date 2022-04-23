@@ -120,12 +120,12 @@ int main() {
 			std::time_t now = std::time(nullptr);
 			std::tm* time = std::localtime(&now);
 			
-			if time->tm_wday != cached_weekday {
+			if (time->tm_wday != cached_weekday) {
 				cached_weekday = time->tm_wday;
 				plant_reminder_sent_today = false;
 			}
 			
-			if (!plant_reminder_sent_today && time->tm_wday == 5 && time->tm_hour == 14) {
+			if (!plant_reminder_sent_today && time->tm_wday == 2 && time->tm_hour == 14) {
 				bot.message_create(dpp::message(ChannelTableSlackers, mention(RolePlantMoms, true) + " Don't forget to water Milgro."));
 				plant_reminder_sent_today = true;
 			}
