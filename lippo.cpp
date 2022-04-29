@@ -29,9 +29,7 @@
 THIS IS A PROFESSIONAL BOT.
 THEIR NAME IS LIPPO, I GUESS???
 
-AND NOW THEY'RE WRITTEN IN C++! I DON'T KNOW IF
-THIS MAKES ME MORE OR LESS OF A MASOCHIST THAN
-USING JAVASCRIPT. PROBABLY SLIGHTLY LESS.
+AND NOW THEY'RE WRITTEN IN C++! SHINY!
 
 Written by Diane Sparks for the VGDC @ UCI server
 Uses D++ by Craig Edwards
@@ -41,6 +39,7 @@ Art generated on manytools.org
 */
 
 #include <dpp/dpp.h>
+#include <dpp/fmt/format.h>
 
 #include <iostream>
 #include <regex>
@@ -87,7 +86,7 @@ void set_lab_open(dpp::cluster& bot, bool open) {
 
 
 std::string mention(dpp::snowflake id, bool role = false) {
-	return "<@" + std::string(role ? "&" : "") + std::to_string(id) + ">";
+	return fmt::format("<@{}{}>", role ? "&" : "", id);
 }
 
 
@@ -106,30 +105,46 @@ int main() {
 	dpp::cluster bot{token, intents};
 
 	bot.on_ready([&bot] (const dpp::ready_t&  event) {
-		std::cout << "Connected as " << bot.me.username << std::endl;
+		if (dpp::run_once<struct lippo_setup>()) {
+			std::cout << fmt::format("Connected as {}", bot.me.username) << std::endl;
 
-		set_lab_open(bot, false);
+			set_lab_open(bot, false);
 		
-		{
-			std::time_t now = std::time(nullptr);
-			std::tm* time = std::localtime(&now);
-			cached_weekday = time->tm_wday;
-		}
-
-		bot.start_timer([&bot] (dpp::timer timer) {
-			std::time_t now = std::time(nullptr);
-			std::tm* time = std::localtime(&now);
-			
-			if (time->tm_wday != cached_weekday) {
+			{
+				std::time_t now = std::time(nullptr);
+				std::tm* time = std::localtime(&now);
 				cached_weekday = time->tm_wday;
-				plant_reminder_sent_today = false;
 			}
+
+			bot.start_timer([&bot] (dpp::timer timer) {
+				std::time_t now = std::time(nullptr);
+				std::tm* time = std::localtime(&now);
 			
-			if (!plant_reminder_sent_today && time->tm_wday == 2 && time->tm_hour == 14) {
-				bot.message_create(dpp::message(ChannelTableSlackers, mention(RolePlantMoms, true) + " Don't forget to water Milgro."));
-				plant_reminder_sent_today = true;
-			}
-		}, 600);
+				if (time->tm_wday != cached_weekday) {
+					cached_weekday = time->tm_wday;
+					plant_reminder_sent_today = false;
+				}
+			
+				if (!plant_reminder_sent_today && time->tm_wday == 2 && time->tm_hour == 14) {
+					bot.message_create(dpp::message(ChannelTableSlackers, fmt::format("{} Don't forget to water Milgro.", mention(RolePlantMoms, true))));
+					plant_reminder_sent_today = true;
+				}
+			}, 600);
+
+			dpp::slashcommand command_labopen{"labopen", "Change Game Lab status to open", bot.me.id};
+			command_labopen.disable_default_permissions();
+			//command_labopen.add_permission(dpp::command_permission(RoleAdmin, dpp::command_permission_type::cpt_role, true));
+			//command_labopen.add_permission(dpp::command_permission(RoleOperations, dpp::command_permission_type::cpt_role, true));
+			//command_labopen.add_permission(dpp::command_permission(RoleAlum, dpp::command_permission_type::cpt_role, true));
+			dpp::slashcommand command_labclose{"labclose", "Change Game Lab status to closed", bot.me.id};
+			command_labclose.disable_default_permissions();
+			//command_labclose.add_permission(dpp::command_permission(RoleAdmin, dpp::command_permission_type::cpt_role, true));
+			//command_labclose.add_permission(dpp::command_permission(RoleOperations, dpp::command_permission_type::cpt_role, true));
+			//command_labclose.add_permission(dpp::command_permission(RoleAlum, dpp::command_permission_type::cpt_role, true));
+
+			bot.global_command_create(command_labopen);
+			bot.global_command_create(command_labclose);
+		}
 	});
 
 	bot.on_message_create([&bot] (const dpp::message_create_t&  event) {
@@ -141,7 +156,7 @@ int main() {
 			std::string message = std::regex_replace(event.msg.content, everyone_regex, "");
 			bot.message_delete(event.msg.id, event.msg.channel_id);
 			bot.message_create(dpp::message(event.msg.channel_id, "I just automatically removed a message that contained words we've recently seen in malicious messages. If this is a mistake, please DM one of the programming officers."));
-			bot.message_create(dpp::message(event.msg.channel_id, "Deleted message:\n" + std::regex_replace(message, url_regex, "[LINK BLOCKED]")));
+			bot.message_create(dpp::message(event.msg.channel_id, fmt::format("Deleted message:\n{}", std::regex_replace(message, url_regex, "[LINK BLOCKED]"))));
 			return;
 		}
 
@@ -155,31 +170,19 @@ int main() {
 		}
 
 		if (std::regex_search(event.msg.content, secret_lab_regex)) {
-			bot.message_create(dpp::message(event.msg.channel_id, mention(event.msg.author.id) + "I think you mean \"Quiet Lab.\""));
+			event.reply("I think you mean \"Quiet Lab.\"", true);
 			return;
 		}
+	});
 
-		if (event.msg.content == "!labopen" && event.msg.channel_id == ChannelLabStatus) {
-			for (auto& role : event.msg.member.roles) {
-				if (role == RoleOperations || role == RoleAdmin || role == RoleAlum) {
-					set_lab_open(bot, true);
-					bot.message_create(dpp::message(event.msg.channel_id, "Game lab is now OPEN"));
-					return;
-				}
-			}
-
+	bot.on_interaction_create([&bot] (const dpp::interaction_create_t& event) {
+		if (event.command.get_command_name() == "labopen") {
+			set_lab_open(bot, true);
+			event.reply("Game lab is now OPEN");
 			return;
-		}
-
-		if ((event.msg.content == "!labclose" || event.msg.content == "!labclosed") && event.msg.channel_id == ChannelLabStatus) {
-			for (auto& role : event.msg.member.roles) {
-				if (role == RoleOperations || role == RoleAdmin || role == RoleAlum) {
-					set_lab_open(bot, false);
-					bot.message_create(dpp::message(event.msg.channel_id, "Game lab is now CLOSED"));
-					return;
-				}
-			}
-
+		} else if (event.command.get_command_name() == "labclose") {
+			set_lab_open(bot, false);
+			event.reply("Game lab is now CLOSED");
 			return;
 		}
 	});
