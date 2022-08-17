@@ -8,10 +8,10 @@
             @@@@@@@@@@@ %%%%%%%%%%%%%%%(@@@@@@@@@@@@@                   
                @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@                      
                 @@@@@@@▆▆▆▆▆@@@@@@@@@▆▆▆▆▆@@@@@@@                       
-               @@@@@▆▆▆▆▆▆▆▆▆▆▆@@@▆▆▆▆▆▆▆▆▆▆▆@@@@                       
-               @@@@#▆▆▆▆▆▆▆▆▆▆▆▆@▆▆▆▆▆▆▆▆▆▆▆▆@@@@                       
-               @@@@@▆▆▆▆▆▆▆▆▆▆▆@@@▆▆▆▆▆▆▆▆▆▆▆@@@@                       
-                @@@@@,▆▆▆▆▆▆▆▆@@@@@▆▆▆▆▆▆▆▆@@@@@                        
+               @@@@@▆▆▆▆▆▆▆▆▆▆@@@▆▆▆▆▆▆▆▆@@@@                       
+               @@@@#▆▆▆▆▆▆▆▆▆▆@@▆▆▆▆▆▆▆▆▆@@@@                     
+               @@@@@▆▆▆▆▆▆▆▆▆@@@▆▆▆▆▆▆▆▆▆@@@@                       
+                @@@@@,▆▆▆▆▆▆@@@@@@▆▆▆▆▆▆@@@@@                        
                 @@@@@@@@@@@@@@@@ @@@@@@@@@@@@@@@                        
                  @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@                         
                    @@@@@@@@@@@@@@@@@@@@@@@@@@@                          
@@ -45,6 +45,7 @@ Art generated on manytools.org
 #include <regex>
 #include <fstream>
 #include <ctime>
+#include <cstring>
 
 namespace {
 	bool lab_open = false;
@@ -90,7 +91,7 @@ std::string mention(dpp::snowflake id, bool role = false) {
 }
 
 
-int main() {
+int main(int argc, char* argv[]) {
 	std::ifstream token_file{TokenFile};
 	if (!token_file.is_open()) {
 		std::cerr << "Failed to open token file!" << std::endl;
@@ -104,7 +105,15 @@ int main() {
 	uint32_t intents = dpp::i_default_intents | dpp::i_message_content;
 	dpp::cluster bot{token, intents};
 
-	bot.on_ready([&bot] (const dpp::ready_t&  event) {
+	// CL options
+	bool op_milgro = false;
+	for (int i = 1; i < argc; i++) {
+		if (!strcmp(argv[i], "--milgro")) {
+			op_milgro = true;
+		}
+	}
+
+	bot.on_ready([&bot, &op_milgro] (const dpp::ready_t&  event) {
 		if (dpp::run_once<struct lippo_setup>()) {
 			std::cout << fmt::format("Connected as {}", bot.me.username) << std::endl;
 
@@ -117,30 +126,35 @@ int main() {
 			}
 
 			bot.start_timer([&bot] (dpp::timer timer) {
-				std::time_t now = std::time(nullptr);
-				std::tm* time = std::localtime(&now);
+					std::time_t now = std::time(nullptr);
+					std::tm* time = std::localtime(&now);
+
+					if (lab_open && (time->tm_hour >= 22 || time->tm_hour <= 5)) {
+						set_lab_open(bot, false);
+					}
+			}, 540);
+
+			if (op_milgro) {
+				bot.start_timer([&bot] (dpp::timer timer) {
+					std::time_t now = std::time(nullptr);
+					std::tm* time = std::localtime(&now);
 			
-				if (time->tm_wday != cached_weekday) {
-					cached_weekday = time->tm_wday;
-					plant_reminder_sent_today = false;
-				}
+					if (time->tm_wday != cached_weekday) {
+						cached_weekday = time->tm_wday;
+						plant_reminder_sent_today = false;
+					}
 			
-				if (!plant_reminder_sent_today && time->tm_wday == 2 && time->tm_hour == 14) {
-					bot.message_create(dpp::message(ChannelTableSlackers, fmt::format("{} Don't forget to water Milgro.", mention(RolePlantMoms, true))));
-					plant_reminder_sent_today = true;
-				}
-			}, 600);
+					if (!plant_reminder_sent_today && time->tm_wday == 2 && time->tm_hour == 14) {
+						bot.message_create(dpp::message(ChannelTableSlackers, fmt::format("{} Don't forget to water Milgro.", mention(RolePlantMoms, true))));
+						plant_reminder_sent_today = true;
+					}
+				}, 600);
+			}
 
 			dpp::slashcommand command_labopen{"labopen", "Change Game Lab status to open", bot.me.id};
 			command_labopen.disable_default_permissions();
-			//command_labopen.add_permission(dpp::command_permission(RoleAdmin, dpp::command_permission_type::cpt_role, true));
-			//command_labopen.add_permission(dpp::command_permission(RoleOperations, dpp::command_permission_type::cpt_role, true));
-			//command_labopen.add_permission(dpp::command_permission(RoleAlum, dpp::command_permission_type::cpt_role, true));
 			dpp::slashcommand command_labclose{"labclose", "Change Game Lab status to closed", bot.me.id};
 			command_labclose.disable_default_permissions();
-			//command_labclose.add_permission(dpp::command_permission(RoleAdmin, dpp::command_permission_type::cpt_role, true));
-			//command_labclose.add_permission(dpp::command_permission(RoleOperations, dpp::command_permission_type::cpt_role, true));
-			//command_labclose.add_permission(dpp::command_permission(RoleAlum, dpp::command_permission_type::cpt_role, true));
 
 			bot.global_command_create(command_labopen);
 			bot.global_command_create(command_labclose);
